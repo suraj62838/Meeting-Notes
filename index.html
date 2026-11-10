@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Meeting Notes</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f6fb; --panel: #ffffff; --panel-2: #f1f0f8; --line: #e6e4f0; --text: #1d1b2c; --muted: #6e6b85;
+      --accent: #6b4eff; --accent-soft: #eeeaff; --accent-text: #ffffff; --rec: #e5484d; --rec-soft: #fdecec;
+      --ok: #1f9d6b; --ok-soft: #e3f6ee; --you: #6b4eff; --others: #0e8f87;
+      --shadow: 0 1px 2px rgba(20, 16, 60, .06), 0 4px 16px rgba(20, 16, 60, .06);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #131220; --panel: #1c1a2c; --panel-2: #24223a; --line: #2f2c48; --text: #ecebf7; --muted: #9a97b5;
+        --accent: #8b74ff; --accent-soft: #2c2650; --rec: #ff6369; --rec-soft: #3a1f26; --ok: #3ccf91; --ok-soft: #173329;
+        --you: #a594ff; --others: #3cc9bf; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: grid; grid-template-columns: 320px 1fr; background: var(--bg); color: var(--text); }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; border: 0; border-radius: 10px; padding: 8px 14px; background: var(--panel-2); transition: background .15s, transform .05s; }
+    button:hover:not(:disabled) { filter: brightness(.97); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled { opacity: .5; cursor: default; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .primary { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+    .ghost { background: transparent; color: var(--muted); }
+    .ghost:hover:not(:disabled) { background: var(--panel-2); color: var(--text); }
+    input[type=text], input[type=password], input[type=search], select {
+      width: 100%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    svg { width: 18px; height: 18px; flex: none; }
+
+    /* ---------- Sidebar ---------- */
+    aside { display: flex; flex-direction: column; gap: 14px; padding: 18px 16px 12px; border-right: 1px solid var(--line); background: var(--panel); min-height: 0; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+    .logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: linear-gradient(135deg, var(--accent), #b06bff); color: #fff; }
+    .brand .ghost { margin-left: auto; padding: 6px; }
+
+    .recorder { border-radius: 16px; padding: 16px; background: var(--panel-2); display: grid; gap: 12px; }
+    .rec-row { display: flex; align-items: center; gap: 14px; }
+    #rec { width: 56px; height: 56px; border-radius: 50%; padding: 0; display: grid; place-items: center; background: var(--rec); color: #fff; box-shadow: 0 4px 14px rgba(229,72,77,.35); }
+    #rec .dot { width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: border-radius .2s, width .2s, height .2s; }
+    #rec.on .dot { width: 18px; height: 18px; border-radius: 4px; }
+    #rec.on { animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229,72,77,.45); } 70% { box-shadow: 0 0 0 14px rgba(229,72,77,0); } 100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); } }
+    @media (prefers-reduced-motion: reduce) { #rec.on { animation: none; } .spinner { animation-duration: 3s; } }
+    .rec-text b { display: block; font-size: 15px; }
+    .rec-text span { color: var(--muted); font-size: 12.5px; }
+    #recLabel { font-variant-numeric: tabular-nums; }
+    .join { display: flex; gap: 6px; }
+    .join input { flex: 1; }
+    .join button { white-space: nowrap; }
+
+    .status { display: none; align-items: center; gap: 8px; font-size: 12.5px; padding: 8px 10px; border-radius: 10px; background: var(--accent-soft); color: var(--text); }
+    .status.show { display: flex; }
+    .status.error { background: var(--rec-soft); }
+    .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); border-right-color: transparent; animation: spin .8s linear infinite; flex: none; }
+    .status.error .spinner, .status.idle .spinner { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .list-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    #list { list-style: none; margin: 0 -6px; padding: 0 6px; overflow: auto; flex: 1; min-height: 0; display: grid; gap: 4px; align-content: start; }
+    #list button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 10px 12px; background: transparent; border: 1px solid transparent; }
+    #list button:hover { background: var(--panel-2); }
+    #list button[aria-current="true"] { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+    .item-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-meta { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background: var(--panel-2); color: var(--muted); }
+    .badge.ok { background: var(--ok-soft); color: var(--ok); }
+    .badge.acc { background: var(--accent-soft); color: var(--accent); }
+    .empty-list { color: var(--muted); font-size: 13px; padding: 12px; text-align: center; }
+
+    /* ---------- Main ---------- */
+    main { overflow: auto; min-width: 0; }
+    .empty { height: 100%; display: grid; place-content: center; text-align: center; color: var(--muted); padding: 24px; gap: 6px; }
+    .empty .big { width: 72px; height: 72px; margin: 0 auto 8px; border-radius: 22px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+    .empty .big svg { width: 34px; height: 34px; }
+    .empty h2 { color: var(--text); margin: 0; font-size: 20px; }
+
+    .detail { max-width: 920px; margin: 0 auto; padding: 28px 32px 48px; }
+    .detail-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+    .detail-head h1 { margin: 0; font-size: 24px; line-height: 1.25; }
+    .detail-head .meta { color: var(--muted); margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .detail-head .meta span { display: inline-flex; align-items: center; gap: 5px; }
+    .detail-head .meta svg { width: 15px; height: 15px; }
+    .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions button { display: inline-flex; align-items: center; gap: 6px; }
+
+    .tabs { display: flex; gap: 4px; margin: 22px 0 18px; border-bottom: 1px solid var(--line); }
+    .tabs button { background: transparent; border-radius: 8px 8px 0 0; padding: 10px 14px; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); margin-bottom: 14px; }
+    .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .summary { border-left: 4px solid var(--accent); background: linear-gradient(90deg, var(--accent-soft), var(--panel) 70%); font-size: 15px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid2 .card { margin-bottom: 0; }
+    .grid2 { margin-bottom: 14px; }
+    @media (max-width: 1100px) { .grid2 { grid-template-columns: 1fr; } }
+    .card ul, .card ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { padding: 3px 10px; border-radius: 99px; background: var(--panel-2); font-size: 13px; }
+    .topic + .topic { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+    .topic b { display: block; margin-bottom: 4px; }
+    .checks { list-style: none; padding: 0 !important; }
+    .checks li { display: flex; gap: 8px; }
+    .checks li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+    td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tr:last-child td { border-bottom: 0; }
+    .owner { display: inline-block; padding: 1px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 12.5px; }
+    .due { color: var(--muted); white-space: nowrap; }
+    .none { color: var(--muted); }
+    .legacy { white-space: pre-wrap; }
+    .regen { display: flex; justify-content: flex-end; }
+
+    .cta { text-align: center; padding: 36px 20px; }
+    .cta p { color: var(--muted); margin: 6px 0 16px; }
+
+    .transcript { display: grid; gap: 4px; }
+    .turn { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 10px 12px; border-radius: 12px; }
+    .turn:hover { background: var(--panel); }
+    .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; background: var(--muted); }
+    .turn.you .avatar { background: var(--you); }
+    .turn.others .avatar { background: var(--others); }
+    .who { font-weight: 600; }
+    .turn.you .who { color: var(--you); }
+    .turn.others .who { color: var(--others); }
+    .ts { color: var(--muted); font-size: 12px; margin-left: 8px; font-variant-numeric: tabular-nums; }
+    .plain { white-space: pre-wrap; }
+
+    dialog { border: 0; border-radius: 18px; padding: 0; width: min(520px, 92vw); background: var(--panel); color: var(--text); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    dialog::backdrop { background: rgba(10, 8, 30, .45); }
+    .dlg-head { display: flex; align-items: center; padding: 18px 20px 6px; }
+    .dlg-head h2 { margin: 0; font-size: 18px; }
+    .dlg-head .ghost { margin-left: auto; padding: 6px 10px; }
+    .dlg-body { padding: 6px 20px 20px; display: grid; gap: 4px; }
+    .setting { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .setting:last-child { border-bottom: 0; }
+    .setting .txt { flex: 1; }
+    .setting .txt b { display: block; }
+    .setting .txt span { color: var(--muted); font-size: 12.5px; }
+    .switch { appearance: none; width: 40px; height: 24px; border-radius: 99px; background: var(--line); position: relative; cursor: pointer; transition: background .15s; flex: none; margin: 0; }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .switch:checked { background: var(--accent); }
+    .switch:checked::after { left: 19px; }
+    .cal { display: grid; gap: 8px; padding-top: 12px; }
+    .cal .row { display: flex; gap: 6px; }
+    .cal .row input { flex: 1; }
+    .hint { color: var(--muted); font-size: 12.5px; margin: 0; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v3"/></svg></div>
+      Meeting Notes
+      <button class="ghost" id="settingsBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    </div>
+
+    <section class="recorder" aria-label="Recorder">
+      <div class="rec-row">
+        <button id="rec" aria-label="Start recording"><span class="dot"></span></button>
+        <div class="rec-text">
+          <b id="recLabel">Start recording</b>
+          <span id="recSub">Records your mic and the call audio</span>
+        </div>
+      </div>
+      <form class="join" id="joinform">
+        <input id="link" type="text" required placeholder="Paste meeting link" title="Zoom, Google Meet or Teams link" autocomplete="off" aria-label="Meeting link">
+        <button id="join" type="submit" class="primary">Join</button>
+      </form>
+    </section>
+
+    <div class="status" id="status" role="status" aria-live="polite"><span class="spinner"></span><span id="statusText"></span></div>
+
+    <div class="list-head"><span>Recordings</span><span id="count"></span></div>
+    <input id="search" type="search" placeholder="Search recordings" aria-label="Search recordings">
+    <ul id="list"></ul>
+  </aside>
+
+  <main>
+    <div class="empty" id="empty">
+      <div class="big"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div>
+      <h2>Your meetings, written up</h2>
+      <p>Record a meeting or pick one from the list.<br>You'll get a transcript and ready-to-share Minutes of Meeting.</p>
+    </div>
+
+    <div class="detail" id="detail" hidden>
+      <div class="detail-head">
+        <div>
+          <h1 id="title"></h1>
+          <div class="meta">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><span id="date"></span></span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="dur"></span></span>
+          </div>
+        </div>
+        <div class="actions" id="momActions">
+          <button id="copy" title="Copy minutes (pastes formatted into email or docs)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+          <button id="pdf" class="primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Export PDF</button>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tabMom" aria-selected="true" aria-controls="momPane">Minutes</button>
+        <button role="tab" id="tabTx" aria-selected="false" aria-controls="txPane">Transcript</button>
+      </div>
+
+      <section id="momPane" role="tabpanel" aria-labelledby="tabMom"></section>
+      <section id="txPane" role="tabpanel" aria-labelledby="tabTx" hidden></section>
+    </div>
+  </main>
+
+  <dialog id="settings" aria-labelledby="settingsTitle">
+    <div class="dlg-head"><h2 id="settingsTitle">Settings</h2><button class="ghost" id="settingsClose" aria-label="Close">✕</button></div>
+    <div class="dlg-body">
+      <label class="setting"><span class="txt"><b>Record call audio</b><span>Capture what others say (needs Screen &amp; System Audio Recording permission)</span></span><input type="checkbox" class="switch" id="sys" checked></label>
+      <label class="setting"><span class="txt"><b>Auto-record meetings</b><span>Start recording when Zoom, Meet or Teams uses your mic</span></span><input type="checkbox" class="switch" id="auto"></label>
+      <div class="setting" style="display:block">
+        <div class="txt"><b>Calendar</b><span>Name recordings after your events, and only auto-record during scheduled meetings.</span></div>
+        <div class="cal">
+          <div class="row"><input id="calurl" type="password" autocomplete="off" placeholder="Secret iCal link" aria-label="Calendar iCal link"><button id="calsave" class="primary">Save</button><button id="calclear">Remove</button></div>
+          <p class="hint" id="calstatus"></p>
+          <p class="hint">Google Calendar: Settings → your calendar → "Secret address in iCal format". Outlook: Settings → Shared calendars → Publish → ICS.</p>
+        </div>
+      </div>
+      <div class="setting" style="display:block">
+        <div class="txt"><b>AI provider</b><span>Transcribes the audio (Whisper) and writes the minutes. The key is stored encrypted on this Mac.</span></div>
+        <div class="cal">
+          <div class="row"><select id="aiprovider" aria-label="AI provider"><option value="groq">Groq (has a free tier)</option><option value="openai">OpenAI</option><option value="custom">Other OpenAI-compatible API</option></select></div>
+          <div class="row" id="aiurlrow" hidden><input id="aiurl" type="text" placeholder="API base URL, e.g. https://api.example.com/v1" aria-label="API base URL"></div>
+          <div class="row"><input id="aikey" type="password" autocomplete="off" aria-label="API key"></div>
+          <div class="row"><input id="aichat" type="text" aria-label="Model for minutes and Hinglish"><input id="aiwhisper" type="text" aria-label="Transcription model (Whisper)"></div>
+          <div class="row"><button id="aisave" class="primary">Save</button></div>
+          <p class="hint" id="aistatus"></p>
+        </div>
+      </div>
+      <div class="setting"><span class="txt"><b>Note-taker bot</b><span>Joins Google Meet links you paste here as a participant and records the call on its own. Sign in a Google account for it once; many calls don't let guests in.</span></span><button id="botsignin">Sign in</button></div>
+      <div class="setting"><span class="txt"><b>Recordings folder</b><span>Audio, transcripts and minutes are stored on this Mac</span></span><button id="reveal">Open</button></div>
+    </div>
+  </dialog>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

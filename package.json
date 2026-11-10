@@ -1,0 +1,57 @@
+{
+  "name": "meeting-notes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Record meetings, transcribe English/Hindi/Hinglish with speaker labels, and create Minutes of Meeting.",
+  "main": "main.js",
+  "scripts": {
+    "start": "open -n node_modules/electron/dist/Electron.app --args \"$PWD\"",
+    "test": "node wav.test.js && node meeting.test.js && node calendar.test.js && node groq.test.js && node meeting-link.test.js && node speakers.test.js && node worklet.test.js && node mom.test.js && node transcribe.test.js",
+    "build:watcher": "swiftc -O -target arm64-apple-macos14 mic-watch.swift -o bin/mic-watch-arm64 && swiftc -O -target x86_64-apple-macos14 mic-watch.swift -o bin/mic-watch-x64 && lipo -create bin/mic-watch-arm64 bin/mic-watch-x64 -o bin/mic-watch && rm bin/mic-watch-arm64 bin/mic-watch-x64",
+    "postinstall": "npm run build:watcher",
+    "dev": "electron .",
+    "dist": "npm run build:watcher && electron-builder --mac dmg --arm64 --x64",
+    "dist:win": "electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "node-ical": "^0.27.3"
+  },
+  "devDependencies": {
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.edzeb.meetingnotes",
+    "productName": "Meeting Notes",
+    "files": [
+      "**/*",
+      "!*.test.js",
+      "!mic-watch.swift",
+      "!.env",
+      "!dist/**"
+    ],
+    "asarUnpack": [
+      "bin/**"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "14.0",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Meeting Notes records your microphone to transcribe meetings.",
+        "NSAudioCaptureUsageDescription": "Meeting Notes records meeting audio to transcribe it."
+      }
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "toolsets": {
+      "nsis": "1.2.1"
+    }
+  }
+}
